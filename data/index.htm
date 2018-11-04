@@ -1,0 +1,141 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <title>myClock</title>
+    <meta name='viewport' content='width=device-width, initial-scale=.83'>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="css/myclock.css">
+  </head>
+  <body>
+    <a href='https://github.com/dragondaud/myClock' target='_blank'>
+    <h1>myClock %version%</h1></a>
+
+    <div>
+      <h3>%host%<span style='float: right'>%date%</span></h3>
+
+      <div class="%ds_class%">
+        <p><meter value='%temperature%' min='-50' max='150'></meter> Temperature;</p>
+      </div>
+
+      <form method='POST' action='/options' id='optionsForm' name='optionsForm'>
+        <table>
+          <tr>
+            <th><label for='myColor'>Color</label></th>
+            <td><input type='color' id='myColor' name='myColor' value='%myColor%'></td>
+          </tr>
+          <tr>
+            <th><label for='brightness'>Brightness</label></th>
+            <td>
+              <input type='number' id='brightNum' name='brightNum' style='width: 3em' min='1' max='255' value='%brightness%' oninput='brightness.value=brightNum.value'>
+              <input type='range' id='brightness' name='brightness' min='1' max='255' value='%brightness%' oninput='brightNum.value=brightness.value'>
+            </td>
+          </tr>
+          <tr>
+            <th><label for='threshold'>Threshold</label></th>
+            <td>
+              <input type='number' id='threshNum' name='threshNum' style='width: 3em' min='1' max='999' value='%threshold%' oninput='threshold.value=threshNum.value'> 
+              <input type='range' id='threshold' name='threshold' min='1' max='999' value='%threshold%' oninput='threshNum.value=threshold.value'>
+            </td>
+          </tr>
+          <tr>
+            <th><label for='milTime'>24hour Time</label></th>
+            <td>
+              <label class='switch'><input type='checkbox' id='milTime' name='milTime' %milTime%>
+              <span class='slider round'></span></label>
+            </td>
+          </tr>
+          <tr>
+            <th><label for='celsius'>Celsius</label></th>
+            <td>
+              <label class='switch'><input type='checkbox' id='celsius' name='celsius' %celsius%>
+              <span class='slider round'></span></label>
+            </td>
+          </tr>
+          <tr>
+            <th><label for='language'>Language</label></th>
+            <td>
+              <select name='language' id='language' value='%language%'>
+                <option value='hr'>Croatian</option>
+                <option value='cz'>Czech</option>
+                <option value='nl'>Dutch</option>
+                <option value='en'>English</option>
+                <option value='fi'>Finnish</option>
+                <option value='fr'>French</option>
+                <option value='gl'>Galician</option>
+                <option value='de'>German</option>
+                <option value='hu'>Hungarian</option>
+                <option value='it'>Italian</option>
+                <option value='la'>Latvian</option>
+                <option value='lt'>Lithuanian</option>
+                <option value='pl'>Polish</option>
+                <option value='pt'>Portuguese</option>
+                <option value='sk'>Slovak</option>
+                <option value='sl'>Slovenian</option>
+                <option value='es'>Spanish</option>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <th>
+              <label for='timezone'>Time Zone</label>
+            </th>
+            <td>
+              <input type='text' id='timezone' name='timezone' value='%timezone%'>
+            </td>
+          </tr>
+          <tr>
+            <th><label for='location'>Postal Code</label></th>
+            <td>
+              <input type='text' id='location' name='location' size='10' value='%location%'>
+            </td>
+          </tr>
+          <tr>
+            <th>
+              <label for='tzKey'>TimeZoneDB Key</label>
+            </th>
+            <td>
+              <input type='text' id='tzKey' name='tzKey' value='%tzKey%'>
+            </td>
+          </tr>
+          <tr>
+            <th>
+              <label for='owKey'>OpenWeatherMap Key</label>
+            </th>
+            <td>
+              <input type='text' id='owKey' name='owKey' value='%owKey%'>
+            </td>
+          </tr>
+          <tr>
+            <th>
+              <label for='softAPpass'>Admin Password</label>
+            </th>
+            <td>
+              <input type='password' id='softAPpass' name='softAPpass' placeholder='enter new password'>
+            </td>
+          </tr>
+        </table>
+        <p style='text-align: right'>
+        <input type='submit' class='button' value='APPLY CONFIG'>
+      </form>
+    </div>
+    <p>;
+
+    <div>
+      <h3>Update Firmware</h3>
+      <form method='POST' action='/update' enctype='multipart/form-data'>
+        <input type='file' name='update'>
+        <input type='submit' value='UPDATE' class='button'>
+      </form>
+      <p>
+      <span>
+        <form method='GET' action='/reset' style='display:inline'>
+          <input type='submit' value='REBOOT CLOCK' class='button'>
+        </form>
+        <form method='GET' action='/logout' style='display:inline'>
+          <input type='submit' value='LOGOUT' class='button'>
+        </form>
+      </span>
+      <p>
+    </div>
+  </body>
+</html>

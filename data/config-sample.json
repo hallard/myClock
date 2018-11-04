@@ -1,0 +1,16 @@
+{
+  "softAPpass": "myclock",
+  "APname": "YOUR-SSID",
+  "APpass": "SSID-PASSWORD",
+  "location": "86000",
+  "timezone": "Europe/Paris",
+  "tzKey": "",
+  "owKey": "",
+  "brightness": 255,
+  "milTime": true,
+  "myColor": 65535,
+  "threshold": 400,
+  "celsius": true,
+  "language": "FR",
+  "countryCode": "FR"
+}
