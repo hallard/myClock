@@ -1,5 +1,5 @@
-// WiFi and WiFiManager
-
+// WiFi 
+/*
 void configModeCallback(WiFiManager *myWiFiManager) {
   display.clearDisplay();
   display.setFont(&TomThumb);
@@ -14,17 +14,24 @@ void configModeCallback(WiFiManager *myWiFiManager) {
   display.print(F("IP: "));
   display.print(WiFi.softAPIP());
 }
+*/
 
 void startWiFi() {   // if WiFi does not connect, establish AP for configuration
   String t = WiFi.macAddress();
   t = String(APPNAME) + "-" + t.substring(9, 11) + t.substring(12, 14) + t.substring(15, 17);
   t.toCharArray(HOST, sizeof(HOST));
+  Serial.print(softAPpass);
   WiFi.hostname(HOST);
-  WiFiManager wifiManager;
-  wifiManager.setAPCallback(configModeCallback);
-  wifiManager.setDebugOutput(false);
-  wifiManager.setMinimumSignalQuality(20);
-  if (!wifiManager.autoConnect(HOST, softAPpass.c_str())) ESP.restart();
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(HOST);
+  WiFi.begin(APname.c_str(), APpass.c_str());
+  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    Serial.printf("STA: Failed!\n");
+    WiFi.disconnect(false);
+    delay(1000);
+    WiFi.begin(APname.c_str(), APpass.c_str());
+  }
+
   MDNS.begin(HOST);
   ArduinoOTA.setHostname(HOST);
   ArduinoOTA.onStart([]() {

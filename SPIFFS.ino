@@ -20,37 +20,47 @@ void readSPIFFS() {
   }
 }
 
+
 bool parseJson(JsonObject& json) {
   if (json.success()) {
-    String sp = json["softAPpass"];
-    if (sp != "") softAPpass = sp;
-    String lo = json["location"];
-    if (lo != "") location = lo;
-    String tz = json["timezone"];
-    if (tz != "") timezone = tz;
-    String tk = json["tzKey"];
-    if (tk != "") tzKey = tk;
-    String ow = json["owKey"];
-    if (ow != "") owKey = ow;
-    String la = json["language"];
-    if (la != "") language = la;
-    brightness = json["brightness"];
-    milTime = json["milTime"];
-    myColor = json["myColor"];
-    threshold = json["threshold"];
-    celsius = json["celsius"];
+    const char * value;
+    value = json["softAPpass"];
+    if (value != nullptr) softAPpass = value;
+    value = json["APpass"];
+    if (value != nullptr) APpass = value;
+    value = json["APname"];
+    if (value != nullptr) APname = value;
+    value = json["location"];
+    if (value != nullptr) location = value;
+    value = json["timezone"];
+    if (value != nullptr) timezone = value;
+    value = json["tzKey"];
+    if (value != nullptr) tzKey = value;
+    value = json["owKey"];
+    if (value != nullptr) owKey = value;
+    value = json["language"];
+    if (value != nullptr) language = value;
+    value = json["countryCode"];
+    if (value != nullptr) countryCode = value;
+    brightness = json["brightness"] | 255;
+    milTime = json["milTime"] | true;
+    myColor = json["myColor"] | 65535;
+    threshold = json["threshold"] | 500;
+    celsius = json["celsius"] | false;
 #ifdef SYSLOG
-    String sl = json["syslogSrv"];
-    if (sl != "") syslogSrv = sl;
-    syslogPort = json["syslogPort"];
+    value = json["syslogSrv"];
+    if (value != nullptr) syslogSrv = value;
+    syslogPort = json["syslogPort"] | 514;
 #endif
   }
 }
 
-void writeSPIFFS() {
+bool writeSPIFFS() {
   DynamicJsonBuffer jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
   json["softAPpass"] = softAPpass;
+  json["APpass"] = APpass;
+  json["APname"] = APname;
   json["location"] = location;
   json["timezone"] = timezone;
   json["tzKey"] = tzKey;
@@ -61,6 +71,7 @@ void writeSPIFFS() {
   json["threshold"] = threshold;
   json["celsius"] = celsius;
   json["language"] = language;
+  json["countryCode"] = countryCode;
 #ifdef SYSLOG
   json["syslogSrv"] = syslogSrv;
   json["syslogPort"] = syslogPort;
@@ -70,17 +81,20 @@ void writeSPIFFS() {
     display.setCursor(2, row2);
     display.print(F("config failed"));
     Serial.println(F("failed to open config.json for writing"));
-    if (SPIFFS.format()) Serial.println(F("SPIFFS formated"));
-    delay(5000);
-    ESP.restart();
+    if (SPIFFS.format()) {
+      Serial.println(F("SPIFFS formated"));
+    }
+    Serial.flush();
+    ESP.reset();
   } else {
 #ifdef SYSLOG
     syslog.log(F("save config"));
 #endif
-    json.printTo(configFile);
+    json.prettyPrintTo(configFile);
     configFile.close();
-    delay(1000);
+    delay(100);
   }
+  return true;
 }
 
 String getSPIFFS() {

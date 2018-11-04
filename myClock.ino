@@ -10,7 +10,9 @@
 #include <FS.h>
 #include <pgmspace.h>
 #include <ArduinoJson.h>        // https://github.com/bblanchon/ArduinoJson/
-#include <WiFiManager.h>        // https://github.com/tzapu/WiFiManager
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <SPIFFSEditor.h>
 #include "display.h"
 
 #define APPNAME "myClock"
@@ -30,6 +32,8 @@ int threshold = 500;              // below this value display will dim, incremen
 bool celsius = false;             // set true to display temp in celsius
 String language = "en";           // font does not support all languages
 String countryCode = "US";        // default US, automatically set based on public IP address
+String APpass ="";
+String APname ="";
 
 // Syslog
 #ifdef SYSLOG
@@ -49,8 +53,6 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 int Temp;
 #endif
-
-ESP8266WebServer server(80);
 
 static const char* UserAgent PROGMEM = "myClock/1.0 (Arduino ESP8266)";
 
@@ -81,7 +83,7 @@ void setup() {
   display.setTextColor(myColor);
   display.setBrightness(brightness);
 
-  drawImage(0, 0); // display splash image while connecting
+  //drawImage(0, 0); // display splash image while connecting
 
 #ifdef DS18
   sensors.begin();
@@ -129,7 +131,6 @@ void setup() {
 
 void loop() {
   ArduinoOTA.handle();
-  server.handleClient();
   time_t now = time(nullptr);
   if (now != pNow) {
     if (now > TWOAM) setNTP(timezone);
