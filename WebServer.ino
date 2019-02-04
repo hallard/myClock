@@ -15,6 +15,9 @@
 #include <ESPAsyncWebServer.h>
 #include <SPIFFSEditor.h>
 
+// in NTP.ino
+void setNextNTP(time_t);
+
 AsyncWebServer server(80);
 
 void handleOptions(AsyncWebServerRequest *request)
@@ -74,7 +77,8 @@ void handleOptions(AsyncWebServerRequest *request)
           c.replace(' ', '_');
           if (timezone != c) {
             timezone = c;
-            setNTPNow();
+            // Resync NTP in 1s
+            setNextNTP(1);
           }
         //}
       }
