@@ -9,7 +9,8 @@
 //#define DISPLAY_32x64
 #define DISPLAY_64x64
 
-#include <PxMatrix.h> // https://github.com/2dom/PxMatrix
+//#include <PxMatrix.h> // https://github.com/2dom/PxMatrix
+#include "PxMatrix_local.h"
 #include <gfxfont.h>
 #include "fonts/TomThumb.h"
 
