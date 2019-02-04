@@ -1,5 +1,7 @@
 // obtain and display weather information from openweathermap.org
 
+const char* caridnals PROGMEM = "  N NEE SES SWW NWN ";
+
 void getWeather() {    // Using openweathermap.org
   wDelay = pNow + 900; // delay between weather updates
   display.setCursor(0, row4);   // any error displayed in red on bottom row
@@ -18,22 +20,24 @@ void getWeather() {    // Using openweathermap.org
     syslog.log(F("getWeather HTTP failed"));
 #endif
     display.print(F("http fail"));
-    Serial.println(F("getWeather: HTTP failed"));
+    OUT.println(F("getWeather: HTTP failed"));
   } else {
     int stat = http.GET();
     if (stat == HTTP_CODE_OK) {
       payload = http.getString();
       DynamicJsonBuffer jsonBuffer;
       JsonObject& root = jsonBuffer.parseObject(payload);
-      if (root.success()) {
+      if ( root.success() ) {
+        char dir[3];
         String name = root["name"];
         JsonObject& weather = root["weather"][0];
         JsonObject& main = root["main"];
-        float temperature = main["temp"];
+        int temperature = round( main["temp"].as<float>()) ;
         int humidity = main["humidity"];
-        float wind = root["wind"]["speed"];
+        int wind = round( root["wind"]["speed"].as<float>());
         int deg = root["wind"]["deg"];
-        String dir = degreeDir(deg);
+        degreeDir(deg, &dir[0]);
+        //strcpy(dir, "XX");
         int tc;
         if (celsius) tc = round(temperature * 1.8) + 32;
         else tc = round(temperature);
@@ -46,14 +50,13 @@ void getWeather() {    // Using openweathermap.org
         else if (tc > 95) display.setTextColor(myRED);
         else display.setTextColor(myColor);
         display.fillRect(0, 0, 64, 6, myBLACK);
+
 #ifdef DS18
         display.setCursor(0, row1);
-        display.printf_P(PSTR("%2d/%2d%c%s %2d%% %2d %s"), Temp, round(temperature),
-                         142, celsius ? "C" : "F", humidity, round(wind), dir.c_str());
+        display.printf_P(PSTR("%2d/%2d%c%c %2d%% %2d %s"), Temp, temperature, 142, celsius ? 'C' : 'F', humidity, wind, dir);
 #else
         display.setCursor(9, row1);
-        display.printf_P(PSTR("% 2d%c%s %2d%% %2d %s"), round(temperature),
-                         142, celsius ? "C" : "F", humidity, round(wind), dir.c_str());
+        display.printf_P(PSTR("%2d%c%c %2d%% %2d %s"), temperature, 142, celsius ? 'C' : 'F', humidity, wind, dir);
 #endif
         String description = weather["description"];
         description.replace(F("intensity "), "");   // english description too long sometimes
@@ -88,34 +91,38 @@ void getWeather() {    // Using openweathermap.org
         display.setCursor(x1, row4);
         display.print(description);
 #ifdef SYSLOG
-        syslog.logf("getWeather: %dF|%d%%RH|%d%s|%s",
-                    round(temperature), humidity, round(wind), dir.c_str(), description.c_str());
+        syslog.logf("getWeather: %d%c|%d%%RH|%d%s|%s", temperature, celsius ? 'C' : 'F', humidity, wind, dir, description.c_str());
 #endif
-        Serial.printf_P(PSTR("%2dF, %2d%%, %d %s (%d), %s (%d) \r\n"),
-                        round(temperature), humidity, round(wind), dir.c_str(), deg, description.c_str(), id);
+        OUT.printf_P(PSTR("%2d%c, %2d%%, %d %s (%d), %s (%d) \r\n"), temperature, celsius ? 'C' : 'F', humidity, wind, dir, deg, description.c_str(), id);
       } else {
         display.print(F("json fail"));
 #ifdef SYSLOG
         syslog.log(F("getWeather JSON parse failed"));
         syslog.log(payload);
 #endif
-        Serial.println(F("getWeather: JSON parse failed!"));
-        Serial.println(payload);
+        OUT.println(F("getWeather: JSON parse failed!"));
+        OUT.println(payload);
       }
     } else {
 #ifdef SYSLOG
       syslog.logf("getWeather failed, GET reply %d", stat);
 #endif
       display.print(stat);
-      Serial.printf_P(PSTR("getWeather: GET failed: %d %s\r\n"), stat, http.errorToString(stat).c_str());
+      OUT.printf_P(PSTR("getWeather: GET failed: %d %s\r\n"), stat, http.errorToString(stat).c_str());
     }
   }
   http.end();
 } // getWeather
 
-String degreeDir(int degrees) {
-  static const char* caridnals[] PROGMEM = { "N", "NE", "E", "SE", "S", "SW", "W", "NW", "N" };
-  return caridnals[round((degrees % 360) / 45)];
+const char * degreeDir(int degrees, char * buff) {
+  int idx = (round((degrees % 360) / 45)) + 1;
+  if (idx<1 || idx>8) {
+    idx =0;
+  }
+  buff[0] = caridnals[idx+0];
+  buff[1] = caridnals[idx+1];
+  buff[2] = '\0';
+  return buff;
 } // degreeDir
 
 // from http://playground.arduino.cc/Main/Utf8ascii
