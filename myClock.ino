@@ -3,23 +3,51 @@
      distributed under the terms of the MIT License
 */
 
-#include <ESP8266WiFi.h>        //https://github.com/esp8266/Arduino
+#if defined(ESP8266)
+#include <ESP8266mDNS.h>
 #include <ESP8266HTTPClient.h>
+#else
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
+#include <WiFi.h>    
+#include <HTTPClient.h>
+#include <AsyncTCP.h>
+#include <ESPmDNS.h>
+#include <SPIFFS.h>
+#endif
+
 #include <ArduinoOTA.h>
 #include <time.h>
 #include <FS.h>
 #include <pgmspace.h>
 #include <ArduinoJson.h>        // https://github.com/bblanchon/ArduinoJson/
-#include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <SPIFFSEditor.h>
 #include "display.h"
 
 #define APPNAME "myClock"
-#define VERSION "0.9.23"
+#define VERSION "0.1.2"
 //#define DS18                      // enable DS18B20 temperature sensor
 //#define SYSLOG                    // enable SYSLOG support
 #define LIGHT                     // enable LDR light sensor
+#define ADMIN_USER "admin"
+
+#define myOUT 1   // {0 = NullStream, 1 = Serial, 2 = Bluetooth}
+
+#if myOUT == 0                    // NullStream output
+NullStream NullStream;
+Stream & OUT = NullStream;
+#elif myOUT == 2                  // Bluetooth output, only on ESP32
+#include "BluetoothSerial.h"
+BluetoothSerial SerialBT;
+Stream & OUT = SerialBT;
+#else                             // Serial output default
+Stream & OUT = Serial;
+#endif
+
+// in NTP.ino
+void printTime(time_t);
+time_t getNow(void);
 
 String tzKey;                     // API key from https://timezonedb.com/register
 String owKey;                     // API key from https://home.openweathermap.org/api_keys
@@ -34,6 +62,7 @@ String language = "en";           // font does not support all languages
 String countryCode = "US";        // default US, automatically set based on public IP address
 String APpass ="";
 String APname ="";
+String HTTPpass = "";
 
 // Syslog
 #ifdef SYSLOG
@@ -54,7 +83,11 @@ DallasTemperature sensors(&oneWire);
 int Temp;
 #endif
 
+#if defined (ESP8266)
 static const char* UserAgent PROGMEM = "myClock/1.0 (Arduino ESP8266)";
+#else
+static const char* UserAgent PROGMEM = "myClock/1.0 (Arduino ESP32)";
+#endif
 
 time_t TWOAM, pNow, wDelay;
 uint8_t pHH, pMM, pSS;
@@ -64,24 +97,59 @@ char HOST[20];
 uint8_t dim;
 
 void setup() {
+
+#ifdef ESP32
+  // disable brownout detector reset
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
+  // default ESP32 ADC is 12 bits, set to 10 bits
+  analogSetWidth(10);
+#else
   system_update_cpu_freq(SYS_CPU_160MHZ);               // force 160Mhz to prevent display flicker
-  Serial.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY, 1);  // allow use of RX pin for gpio
-  while (!Serial);
-  delay(10);
+#endif
+
+#if myOUT == 0
+  Serial.end();
+#else
+  Serial.begin(115200);
+  while (!Serial) delay(10);
   Serial.println();
-  tzKey.reserve(13);
-  owKey.reserve(33);
-  location.reserve(10);
-  timezone.reserve(20);
+#endif
+
+#if myOUT == 2
+  if (!SerialBT.begin(APPNAME)) {
+    Serial.println(F("Bluetooth failed"));
+    delay(5000);
+    ESP.restart();
+  }
+  delay(5000); // wait for client to connect
+#endif
+
+  OUT.println(UserAgent);
   readSPIFFS();
 
+#ifdef DISPLAY_64x64
+  // Define your display layout here, e.g. 1/32 step
+  display.begin(32);
+  OUT.println(F("Using 64x64 Display"));
+#else
+  // Define your display layout here, e.g. 1/16 step
   display.begin(16);
+  OUT.println(F("Using 64x32 Display"));
+#endif
+
+  // Define your scan pattern here {LINE, ZIGZAG, ZAGGIZ} (default is LINE)
+  //display.setScanPattern(LINE);
+
+  // Define multiplex implemention here {BINARY, STRAIGHT} (default is BINARY)
+  //display.setMuxPattern(BINARY);
+
+  display.setFastUpdate(false);
   display_ticker.attach(0.002, display_updater);
   display.clearDisplay();
   display.setFont(&TomThumb);
   display.setTextWrap(false);
   display.setTextColor(myColor);
-  display.setBrightness(brightness);
+  setBrightness();
 
   //drawImage(0, 0); // display splash image while connecting
 
@@ -89,7 +157,27 @@ void setup() {
   sensors.begin();
 #endif
 
+  // Create Hostname
+  uint64_t chipid;  
+  #ifdef ESP32
+  chipid=ESP.getEfuseMac();
+  #else
+  chipid=ESP.getChipId();
+  #endif
+  sprintf_P(HOST, PSTR("%s-%06x"), APPNAME, (uint32_t) (chipid & 0xFFFFFF) );
+
   startWiFi();
+
+  display.setCursor(2, row1);
+  display.setTextColor(myGREEN);
+  display.print(HOST);
+  display.setCursor(2, row2);
+  display.setTextColor(myLTBLUE);
+  display.print(F("V"));
+  display.print(VERSION);
+  display.setCursor(2, row3);
+  display.setTextColor(myMAGENTA);
+  display.print(timezone);
 
 #ifdef SYSLOG
   syslog.server(syslogSrv.c_str(), syslogPort);
@@ -98,45 +186,83 @@ void setup() {
   syslog.defaultPriority(LOG_INFO);
 #endif
 
-  if (location == "") location = getIPlocation();
-  else while (timezone == "") getIPlocation();
-
-  display.clearDisplay();
-  display.setCursor(2, row1);
-  display.setTextColor(myGREEN);
-  display.print(HOST);
-  display.setCursor(2, row2);
+  display.setCursor(2, row4);
   display.setTextColor(myBLUE);
   display.print(WiFi.localIP());
-  display.setCursor(2, row3);
-  display.setTextColor(myMAGENTA);
+
+#ifdef DISPLAY_64x64
+  display.setCursor(2, row5);
+  display.setTextColor(myGREEN);
+
+  if (location == "") {
+    display.print(F("-----"));
+    OUT.println(F("location not set getIPlocation()"));
+    location = getIPlocation();
+    display.setCursor(2, row5);
+    display.print(location);
+  } else {
+    display.print(location);
+    display.setCursor(2, row6);
+    display.setTextColor(myBLUE);
+    display.print(F("TimeZone"));
+    while (timezone == "") {
+      OUT.println(F("timezone not set getIPlocation()"));
+      getIPlocation();
+    }
+  }
+  display.setCursor(2, row6);
   display.print(timezone);
-  display.setCursor(2, row4);
-  display.setTextColor(myLTBLUE);
-  display.print(F("V"));
-  display.print(VERSION);
-  display.setCursor(32, row4);
-  display.setTextColor(myBLUE);
-  display.print(F("set ntp"));
-  Serial.printf_P(PSTR("setup: %s, %s, %s \r\n"), location.c_str(), timezone.c_str(), milTime ? "true" : "false");
+  display.setCursor(2, row7);
+  display.setTextColor(myMAGENTA);
+  display.print(F("Get NTP Offset"));
+#else
+  if (location == "") {
+    OUT.println(F("location not set getIPlocation()"));
+    location = getIPlocation();
+  } else {
+    while (timezone == "") {
+      OUT.println(F("timezone not set getIPlocation()"));
+      getIPlocation();
+    }
+  }
+#endif
+
+  OUT.printf_P(PSTR("setup: Location:%s, TZ:%s, MilTime:%s \r\n"), location.c_str(), timezone.c_str(), milTime ? "true" : "false");
 #ifdef SYSLOG
   syslog.logf("setup: %s|%s|%s", location.c_str(), timezone.c_str(), milTime ? "true" : "false");
 #endif
+
   setNTP(timezone);
+  #ifdef DISPLAY_64x64
+  display.setCursor(2, row8);
+  display.setTextColor(myLTBLUE);
+  display.print(offset/3600);
+  display.print(F(" Hour"));
+  delay(2000);
+  #else
   delay(1000);
-  startWebServer();
-  displayDraw(brightness);
+  #endif
+  startWebServer(ADMIN_USER, HTTPpass.c_str());
+  displayDraw();
   getWeather();
 } // setup
 
 void loop() {
   ArduinoOTA.handle();
-  time_t now = time(nullptr);
+  time_t now = getNow();
+
   if (now != pNow) {
-    if (now > TWOAM) setNTP(timezone);
+    //OUT.print(F("Time : "));
+    //printTime(now);
+
+    if (now > TWOAM) {
+      setNTP(timezone);
+    }
     int ss = now % 60;
     int mm = (now / 60) % 60;
     int hh = (now / (60 * 60)) % 24;
+    //OUT.printf_P(PSTR("NOW   : %02d:%02d:%02d\r\n"), hh,mm,ss);
+    //OUT.printf_P(PSTR("TWOAM : %02d:%02d:%02d\r\n"), (TWOAM / (60 * 60)) % 24,(TWOAM / 60) % 60,TWOAM % 60);
     if ((!milTime) && (hh > 12)) hh -= 12;
     if (ss != pSS) {
       int s0 = ss % 10;
@@ -144,9 +270,7 @@ void loop() {
       if (s0 != digit0.Value()) digit0.Morph(s0);
       if (s1 != digit1.Value()) digit1.Morph(s1);
       pSS = ss;
-#ifdef LIGHT
-      getLight();
-#endif
+      setBrightness();
     }
     if (mm != pMM) {
       int m0 = mm % 10;
@@ -154,7 +278,7 @@ void loop() {
       if (m0 != digit2.Value()) digit2.Morph(m0);
       if (m1 != digit3.Value()) digit3.Morph(m1);
       pMM = mm;
-      Serial.printf_P(PSTR("%02d:%02d %d \r"), hh, mm, ESP.getFreeHeap());
+      OUT.printf_P(PSTR("%02d:%02d %d bytes free\r\n"), hh, mm, ESP.getFreeHeap());
     }
     if (hh != pHH) {
       int h0 = hh % 10;
@@ -175,21 +299,39 @@ void loop() {
       display.printf_P(PSTR("% 2d"), Temp);
     }
 #endif
+
+#ifdef DISPLAY_64x64
+    display.setTextColor(myYELLOW);
+    display.fillRect(0, row5 -7, 64, 7, myBLACK);
+    //display.drawRect(0, row5 -7, 64, 7, myYELLOW);
+    display.setCursor(0, row5);
+    display.printf_P(PSTR("Light %d"), light);
+    display.setTextColor(myGREEN);
+    display.fillRect(0, row6 -7, 64, 7, myBLACK);
+    display.setCursor(0, row6);
+    display.printf_P(PSTR("Free %dKB"), ESP.getFreeHeap()/1024);
+#else 
+    //display.fillRect(0, row4 -7, 64, 7, myBLACK);
+    //display.setCursor(0, row4);
+    //display.printf_P(PSTR("Light %d"), light);
+#endif
+
     pNow = now;
-    if (now > wDelay) getWeather();
+    if (now > wDelay) {
+      getWeather();
+    }
   }
 }
 
-void displayDraw(uint8_t b) {
+void displayDraw() {
   display.clearDisplay();
-  display.setBrightness(b);
-  dim = b;
-  time_t now = time(nullptr);
+  setBrightness();
+  time_t now = getNow();
   int ss = now % 60;
   int mm = (now / 60) % 60;
   int hh = (now / (60 * 60)) % 24;
   if ((!milTime) && (hh > 12)) hh -= 12;
-  Serial.printf_P(PSTR("%02d:%02d\r"), hh, mm);
+  OUT.printf_P(PSTR("%02d:%02d\r\n"), hh, mm);
   digit1.DrawColon(myColor);
   digit3.DrawColon(myColor);
   digit0.Draw(ss % 10, myColor);
@@ -201,8 +343,8 @@ void displayDraw(uint8_t b) {
   pNow = now;
 }
 
+void setBrightness() {
 #ifdef LIGHT
-void getLight() {
   int lt = analogRead(A0);
   if (lt > 20) {
     light = (light * 3 + lt) >> 2;
@@ -213,5 +355,7 @@ void getLight() {
     else if (light < threshold) dim = brightness >> 1;
     display.setBrightness(dim);
   }
-}
+#else
+  display.setBrightness(brightness);
 #endif
+}
