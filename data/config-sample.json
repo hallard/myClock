@@ -2,8 +2,9 @@
   "softAPpass": "myclock",
   "APname": "YOUR-SSID",
   "APpass": "SSID-PASSWORD",
-  "location": "86000",
-  "timezone": "Europe/Paris",
+  "HTTPpass" : "admin",
+  "location": "",
+  "timezone": "",
   "tzKey": "",
   "owKey": "",
   "brightness": 255,
@@ -14,3 +15,4 @@
   "language": "FR",
   "countryCode": "FR"
 }
+
