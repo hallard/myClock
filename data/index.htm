@@ -13,8 +13,11 @@
     <div>
       <h3>%host%<span style='float: right'>%date%</span></h3>
 
+      <div class="%lg_class%">
+        <p>Light Level : <span><meter value='%light%' high='%threshold_h%' min='0' max='1023' low='%threshold_l%' optimal='%threshold%'></meter></span></p>
+      </div>
       <div class="%ds_class%">
-        <p><meter value='%temperature%' min='-50' max='150'></meter> Temperature;</p>
+        <p>Temperature : <span><meter value='%temperature%' min='-50' max='150'></meter><span></p>
       </div>
 
       <form method='POST' action='/options' id='optionsForm' name='optionsForm'>
@@ -55,12 +58,12 @@
             <th><label for='language'>Language</label></th>
             <td>
               <select name='language' id='language' value='%language%'>
+                <option value='fr'>French</option>
                 <option value='hr'>Croatian</option>
                 <option value='cz'>Czech</option>
                 <option value='nl'>Dutch</option>
                 <option value='en'>English</option>
                 <option value='fi'>Finnish</option>
-                <option value='fr'>French</option>
                 <option value='gl'>Galician</option>
                 <option value='de'>German</option>
                 <option value='hu'>Hungarian</option>
@@ -107,10 +110,18 @@
           </tr>
           <tr>
             <th>
-              <label for='softAPpass'>Admin Password</label>
+              <label for='softAPpass'>Soft AP Password</label>
             </th>
             <td>
               <input type='password' id='softAPpass' name='softAPpass' placeholder='enter new password'>
+            </td>
+          </tr>
+          <tr>
+            <th>
+              <label for='softAPpass'>Web Admin Password</label>
+            </th>
+            <td>
+              <input type='password' id='HTTPpass' name='HTTPpass' placeholder='enter new password'>
             </td>
           </tr>
         </table>
@@ -118,21 +129,27 @@
         <input type='submit' class='button' value='APPLY CONFIG'>
       </form>
     </div>
-    <p>;
-
+    <p>
     <div>
+    <!--
       <h3>Update Firmware</h3>
       <form method='POST' action='/update' enctype='multipart/form-data'>
         <input type='file' name='update'>
         <input type='submit' value='UPDATE' class='button'>
       </form>
       <p>
+    !-->
       <span>
         <form method='GET' action='/reset' style='display:inline'>
           <input type='submit' value='REBOOT CLOCK' class='button'>
         </form>
+    <!--
         <form method='GET' action='/logout' style='display:inline'>
           <input type='submit' value='LOGOUT' class='button'>
+        </form>
+    !-->
+        <form method='GET' action='/edit' style='display:inline'>
+          <input type='submit' value='SPIFFS Editor' class='button'>
         </form>
       </span>
       <p>
