@@ -1,22 +1,27 @@
 // SPIFFS config file
 // auto format if unable to write
+#include "FS.h"
 
 void readSPIFFS() {
+
   if (SPIFFS.begin()) {
-    Serial.println(F("readSPIFFS: mounted"));
+    OUT.println(F("readSPIFFS: mounted"));
     if (SPIFFS.exists("/config.json")) {
+      OUT.println(F("Reading /config.json"));
+      //readFile(SPIFFS, "/index.htm" );
       File configFile = SPIFFS.open(F("/config.json"), "r");
-      if (!configFile) return;
-      size_t size = configFile.size();
-      std::unique_ptr<char[]> buf(new char[size]);
-      configFile.readBytes(buf.get(), size);
+      if (!configFile) {
+        OUT.println(F("error while reading"));
+        return;
+      }
+
       DynamicJsonBuffer jsonBuffer;
-      JsonObject& json = jsonBuffer.parseObject(buf.get());
+      JsonObject& json = jsonBuffer.parseObject(configFile);
       parseJson(json);
       configFile.close();
-    }
+    } 
   } else {
-    Serial.println(F("readSPIFFS: failed to mount SPIFFS"));
+    OUT.println(F("readSPIFFS: failed to mount SPIFFS"));
   }
 }
 
@@ -24,10 +29,16 @@ void readSPIFFS() {
 bool parseJson(JsonObject& json) {
   if (json.success()) {
     const char * value;
+
+    json.prettyPrintTo(OUT);
+    OUT.println();
+
     value = json["softAPpass"];
     if (value != nullptr) softAPpass = value;
     value = json["APpass"];
     if (value != nullptr) APpass = value;
+    value = json["HTTPpass"];
+    if (value != nullptr) HTTPpass = value;
     value = json["APname"];
     if (value != nullptr) APname = value;
     value = json["location"];
@@ -52,6 +63,8 @@ bool parseJson(JsonObject& json) {
     if (value != nullptr) syslogSrv = value;
     syslogPort = json["syslogPort"] | 514;
 #endif
+  } else {
+    OUT.println(F("error while parsing json"));
   }
 }
 
@@ -61,6 +74,7 @@ bool writeSPIFFS() {
   json["softAPpass"] = softAPpass;
   json["APpass"] = APpass;
   json["APname"] = APname;
+  json["HTTPpass"] = HTTPpass;
   json["location"] = location;
   json["timezone"] = timezone;
   json["tzKey"] = tzKey;
@@ -80,18 +94,20 @@ bool writeSPIFFS() {
   if (!configFile) {
     display.setCursor(2, row2);
     display.print(F("config failed"));
-    Serial.println(F("failed to open config.json for writing"));
+    OUT.println(F("failed to open config.json for writing"));
     if (SPIFFS.format()) {
-      Serial.println(F("SPIFFS formated"));
+      OUT.println(F("SPIFFS formated"));
     }
-    Serial.flush();
-    ESP.reset();
+    OUT.flush();
+    ESP.restart();
   } else {
 #ifdef SYSLOG
     syslog.log(F("save config"));
 #endif
     json.prettyPrintTo(configFile);
     configFile.close();
+    OUT.println(F("Wrote config.json file"));
+    //readSPIFFS();
     delay(100);
   }
   return true;
