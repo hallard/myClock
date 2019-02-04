@@ -21,5 +21,5 @@ input:checked + .slider:before {-webkit-transform: translateX(26px); -ms-transfo
 .slider.round {border-radius: 34px;}
 .slider.round:before {border-radius: 50%;}
 
-.ds_hide { display: none;}
-.ds_show { display: block;}
+.div_hide { display: none;}
+.div_show { display: block;}
