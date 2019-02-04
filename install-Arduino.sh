@@ -13,7 +13,9 @@ if [[ "$OSTYPE" =~ linux ]]; then
 elif [[ "$OSTYPE" =~ darwin ]]; then
 	if [[ ! -d /Applications/Arduino.app ]]; then
 		echo "Install Arduino IDE from https://www.arduino.cc/en/Main/Software"
+		exit 0
 	fi
+	xcode-select --install
 	mkdir -p $HOME/Documents/Arduino && cd $HOME/Documents/Arduino
 fi
 
@@ -29,8 +31,7 @@ mkdir -p libraries && cd libraries
 [ ! -d "ArduinoJson" ] && git clone https://github.com/bblanchon/ArduinoJson.git
 [ ! -d "Syslog" ] && git clone https://github.com/arcao/Syslog.git
 [ ! -d "Adafruit-GFX-Library" ] && git clone https://github.com/adafruit/Adafruit-GFX-Library.git
-[ ! -d "PxMatrix" ] && git clone https://github.com/2dom/PxMatrix.git
-[ ! -d "WiFiManager" ] && git clone https://github.com/tzapu/WiFiManager.git && cd WiFiManager && git checkout development
+#[ ! -d "PxMatrix" ] && git clone https://github.com/2dom/PxMatrix.git
+#[ ! -d "WiFiManager" ] && git clone https://github.com/tzapu/WiFiManager.git && cd WiFiManager && git checkout development
 [ ! -d "DallasTemperature" ] && git clone https://github.com/milesburton/Arduino-Temperature-Control-Library DallasTemperature
 [ ! -d "OneWire" ] && git clone https://github.com/PaulStoffregen/OneWire
-
